@@ -15,6 +15,7 @@ class State:
     """学习计划 Agent 的共享状态."""
 
     topic: str = "LangGraph"
+    skip_quiz: bool = False
     learning_plan: List[str] = field(default_factory=list)
     first_lesson: str = ""
     quiz: List[str] = field(default_factory=list)
@@ -37,6 +38,13 @@ async def make_quiz(state: State) -> Dict[str, Any]:
     return {"quiz": await generate_quiz(state.topic, state.first_lesson)}
 
 
+def route_after_lesson(state: State) -> str:
+    """根据输入决定讲解后是否进入测验节点."""
+    if state.skip_quiz:
+        return END
+    return "make_quiz"
+
+
 graph = (
     StateGraph(State)
     .add_node("plan_topic", plan_topic)
@@ -44,7 +52,7 @@ graph = (
     .add_node("make_quiz", make_quiz)
     .add_edge(START, "plan_topic")
     .add_edge("plan_topic", "explain_topic")
-    .add_edge("explain_topic", "make_quiz")
+    .add_conditional_edges("explain_topic", route_after_lesson)
     .add_edge("make_quiz", END)
     .compile(name="学习计划 Agent")
 )

@@ -1,6 +1,6 @@
 # LangGraph 智能体学习项目
 
-这是一个基于 LangGraph 官方脚手架改造的学习项目。当前第二阶段已经完成：`plan_topic`、`explain_topic` 和 `make_quiz` 三个节点都会调用智谱 GLM，并通过 LangGraph 的 `State` 逐步传递学习计划、课程讲解和测验题。
+这是一个基于 LangGraph 官方脚手架改造的学习项目。当前已经进入第三阶段：`plan_topic`、`explain_topic` 和 `make_quiz` 三个节点都会调用智谱 GLM，并且 `explain_topic` 后面增加了条件边，可以通过 `skip_quiz` 决定是否跳过测验节点。
 
 当前图结构如下：
 
@@ -8,8 +8,8 @@
 START
   -> plan_topic      生成学习计划
   -> explain_topic   讲解第一个知识点
-  -> make_quiz       生成小测验
-  -> END
+      ├─ skip_quiz=false -> make_quiz -> END
+      └─ skip_quiz=true  -> END
 ```
 
 核心代码在 [src/agent/graph.py](./src/agent/graph.py)。
@@ -89,11 +89,28 @@ asyncio.run(main())
 PY
 ```
 
+跳过测验节点：
+
+```bash
+uv run python - <<'PY'
+import asyncio
+from agent.graph import graph
+
+async def main():
+    result = await graph.ainvoke({
+        "topic": "LangGraph 条件边",
+        "skip_quiz": True,
+    })
+    print(result)
+
+asyncio.run(main())
+PY
+```
+
 ## 下一阶段
 
 后续可以按学习顺序继续扩展：
 
-1. 增加条件边，根据用户是否掌握知识点决定继续讲解还是进入测验。
-2. 增加工具调用，让 Agent 可以查询资料。
-3. 增加记忆和 checkpoint，保留每个学习线程的状态。
-4. 增加 human-in-the-loop，让关键学习计划需要用户确认后再继续。
+1. 增加工具调用，让 Agent 可以查询资料。
+2. 增加记忆和 checkpoint，保留每个学习线程的状态。
+3. 增加 human-in-the-loop，让关键学习计划需要用户确认后再继续。

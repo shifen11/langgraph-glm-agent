@@ -107,25 +107,25 @@ def build_quiz_messages(
 async def generate_learning_plan(topic: str) -> list[str]:
     """调用智谱 GLM 生成三步学习计划."""
     api_key, endpoint, model = get_zhipu_client_config()
-    client = AsyncOpenAI(api_key=api_key, base_url=endpoint)
-    response = await client.chat.completions.create(
-        model=model,
-        temperature=0.2,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    f"你是一个智能体学习教练。{LANGGRAPH_DOMAIN_HINT}"
-                    "请输出正好三条学习计划，"
-                    "每条一行，不要标题，不要额外解释。"
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"学习主题：{topic}",
-            },
-        ],
-    )
+    async with AsyncOpenAI(api_key=api_key, base_url=endpoint) as client:
+        response = await client.chat.completions.create(
+            model=model,
+            temperature=0.2,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"你是一个智能体学习教练。{LANGGRAPH_DOMAIN_HINT}"
+                        "请输出正好三条学习计划，"
+                        "每条一行，不要标题，不要额外解释。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"学习主题：{topic}",
+                },
+            ],
+        )
 
     content = response.choices[0].message.content or ""
     plan = parse_learning_plan(content)
@@ -137,12 +137,12 @@ async def generate_learning_plan(topic: str) -> list[str]:
 async def generate_lesson(topic: str, learning_goal: str) -> str:
     """调用智谱 GLM 生成第一课讲解."""
     api_key, endpoint, model = get_zhipu_client_config()
-    client = AsyncOpenAI(api_key=api_key, base_url=endpoint)
-    response = await client.chat.completions.create(
-        model=model,
-        temperature=0.3,
-        messages=build_lesson_messages(topic, learning_goal),
-    )
+    async with AsyncOpenAI(api_key=api_key, base_url=endpoint) as client:
+        response = await client.chat.completions.create(
+            model=model,
+            temperature=0.3,
+            messages=build_lesson_messages(topic, learning_goal),
+        )
 
     content = response.choices[0].message.content or ""
     lesson = content.strip()
@@ -154,12 +154,12 @@ async def generate_lesson(topic: str, learning_goal: str) -> str:
 async def generate_quiz(topic: str, first_lesson: str) -> list[str]:
     """调用智谱 GLM 生成三道测验题."""
     api_key, endpoint, model = get_zhipu_client_config()
-    client = AsyncOpenAI(api_key=api_key, base_url=endpoint)
-    response = await client.chat.completions.create(
-        model=model,
-        temperature=0.2,
-        messages=build_quiz_messages(topic, first_lesson),
-    )
+    async with AsyncOpenAI(api_key=api_key, base_url=endpoint) as client:
+        response = await client.chat.completions.create(
+            model=model,
+            temperature=0.2,
+            messages=build_quiz_messages(topic, first_lesson),
+        )
 
     content = response.choices[0].message.content or ""
     quiz = parse_numbered_items(content, limit=3)
