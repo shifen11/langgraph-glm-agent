@@ -1,61 +1,86 @@
-# New LangGraph Project
+# LangGraph 智能体学习项目
 
-[![CI](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/unit-tests.yml)
-[![Integration Tests](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/integration-tests.yml)
+这是一个基于 LangGraph 官方脚手架改造的学习项目。当前第一阶段实现了一个最小的“学习计划 Agent”，用于理解 LangGraph 里最核心的概念：`StateGraph`、`state`、`node` 和 `edge`。
 
-This template demonstrates a simple application implemented using [LangGraph](https://github.com/langchain-ai/langgraph), designed for showing how to get started with [LangGraph Server](https://langchain-ai.github.io/langgraph/concepts/langgraph_server/#langgraph-server) and using [LangGraph Studio](https://langchain-ai.github.io/langgraph/concepts/langgraph_studio/), a visual debugging IDE.
-
-<div align="center">
-  <img src="./static/studio_ui.png" alt="Graph view in LangGraph studio UI" width="75%" />
-</div>
-
-The core logic defined in `src/agent/graph.py`, showcases an single-step application that responds with a fixed string and the configuration provided.
-
-You can extend this graph to orchestrate more complex agentic workflows that can be visualized and debugged in LangGraph Studio.
-
-## Getting Started
-
-1. Install dependencies, along with the [LangGraph CLI](https://langchain-ai.github.io/langgraph/concepts/langgraph_cli/), which will be used to run the server.
-
-```bash
-cd path/to/your/app
-pip install -e . "langgraph-cli[inmem]"
-```
-
-2. (Optional) Customize the code and project as needed. Create a `.env` file if you need to use secrets.
-
-```bash
-cp .env.example .env
-```
-
-If you want to enable LangSmith tracing, add your LangSmith API key to the `.env` file.
+当前图结构如下：
 
 ```text
-# .env
-LANGSMITH_API_KEY=lsv2...
+START
+  -> plan_topic      生成学习计划
+  -> explain_topic   讲解第一个知识点
+  -> make_quiz       生成小测验
+  -> END
 ```
 
-3. Start the LangGraph Server.
+核心代码在 [src/agent/graph.py](./src/agent/graph.py)。
 
-```shell
-langgraph dev
+## 环境准备
+
+项目使用 `uv` 管理依赖。进入项目目录后执行：
+
+```bash
+uv sync
 ```
 
-For more information on getting started with LangGraph Server, [see here](https://langchain-ai.github.io/langgraph/tutorials/langgraph-platform/local-server/).
+如果本机默认 Python 版本过新导致依赖编译卡住，可以显式使用 Python 3.13：
 
-## How to customize
+```bash
+uv run --python /opt/homebrew/Caskroom/miniconda/base/bin/python3.13 python -c "import sys; print(sys.version)"
+```
 
-1. **Define runtime context**: Modify the `Context` class in the `graph.py` file to expose the arguments you want to configure per assistant. For example, in a chatbot application you may want to define a dynamic system prompt or LLM to use. For more information on runtime context in LangGraph, [see here](https://langchain-ai.github.io/langgraph/agents/context/?h=context#static-runtime-context).
+## 本地启动
 
-2. **Extend the graph**: The core logic of the application is defined in [graph.py](./src/agent/graph.py). You can modify this file to add new nodes, edges, or change the flow of information.
+启动 LangGraph 开发服务：
 
-## Development
+```bash
+uv run langgraph dev
+```
 
-While iterating on your graph in LangGraph Studio, you can edit past state and rerun your app from previous states to debug specific nodes. Local changes will be automatically applied via hot reload.
+启动成功后会看到类似地址：
 
-Follow-up requests extend the same thread. You can create an entirely new thread, clearing previous history, using the `+` button in the top right.
+```text
+API: http://127.0.0.1:2024
+Studio UI: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
+API Docs: http://127.0.0.1:2024/docs
+```
 
-For more advanced features and examples, refer to the [LangGraph documentation](https://langchain-ai.github.io/langgraph/). These resources can help you adapt this template for your specific use case and build more sophisticated conversational agents.
+`langgraph dev` 是开发服务器，启动后会一直占用当前终端。停止时按 `Ctrl+C`。
 
-LangGraph Studio also integrates with [LangSmith](https://smith.langchain.com/) for more in-depth tracing and collaboration with teammates, allowing you to analyze and optimize your chatbot's performance.
+如果 `2024` 端口已经被占用，可以换端口：
 
+```bash
+uv run langgraph dev --port 2025
+```
+
+## 本地验证
+
+运行测试：
+
+```bash
+uv run pytest -q
+```
+
+也可以直接调用图：
+
+```bash
+uv run python - <<'PY'
+import asyncio
+from agent.graph import graph
+
+async def main():
+    result = await graph.ainvoke({"topic": "LangGraph 智能体"})
+    print(result)
+
+asyncio.run(main())
+PY
+```
+
+## 下一阶段
+
+后续可以按学习顺序继续扩展：
+
+1. 接入智谱 GLM，让 `plan_topic`、`explain_topic`、`make_quiz` 由真实模型生成。
+2. 增加条件边，根据用户是否掌握知识点决定继续讲解还是进入测验。
+3. 增加工具调用，让 Agent 可以查询资料。
+4. 增加记忆和 checkpoint，保留每个学习线程的状态。
+5. 增加 human-in-the-loop，让关键学习计划需要用户确认后再继续。
