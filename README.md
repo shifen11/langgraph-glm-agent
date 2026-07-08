@@ -107,6 +107,8 @@ asyncio.run(main())
 PY
 ```
 
+在同一个 Studio thread 里，如果上一次运行已经生成过 `quiz`，再次传入 `skip_quiz=true` 时会清空旧的测验题，避免旧状态残留造成误解。
+
 ## 下一阶段
 
 后续可以按学习顺序继续扩展：

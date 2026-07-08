@@ -30,6 +30,8 @@ async def explain_topic(state: State) -> Dict[str, Any]:
     """调用 GLM 讲解学习计划里的第一个知识点."""
     first_step = state.learning_plan[0] if state.learning_plan else state.topic
     lesson = await generate_lesson(topic=state.topic, learning_goal=first_step)
+    if state.skip_quiz:
+        return {"first_lesson": lesson, "quiz": []}
     return {"first_lesson": lesson}
 
 
