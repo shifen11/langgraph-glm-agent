@@ -33,6 +33,7 @@ def test_build_quiz_messages_contains_topic_lesson_and_count() -> None:
     messages = build_quiz_messages(
         topic="LangGraph 状态传递",
         first_lesson="State 是节点之间传递和更新的数据。",
+        reference="StateGraph 会把节点返回的字段合并回 State。",
     )
 
     assert messages[0]["role"] == "system"
@@ -41,3 +42,4 @@ def test_build_quiz_messages_contains_topic_lesson_and_count() -> None:
     assert messages[1]["role"] == "user"
     assert "LangGraph 状态传递" in messages[1]["content"]
     assert "State 是节点之间传递和更新的数据" in messages[1]["content"]
+    assert "StateGraph 会把节点返回的字段合并回 State" in messages[1]["content"]

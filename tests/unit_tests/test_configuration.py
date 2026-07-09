@@ -12,4 +12,4 @@ def test_route_after_lesson_can_skip_quiz() -> None:
 
 
 def test_route_after_lesson_continues_to_quiz_by_default() -> None:
-    assert route_after_lesson(State(skip_quiz=False)) == "make_quiz"
+    assert route_after_lesson(State(skip_quiz=False)) == "collect_reference"

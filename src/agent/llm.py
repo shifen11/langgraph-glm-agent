@@ -85,7 +85,7 @@ def build_lesson_messages(
 
 
 def build_quiz_messages(
-    topic: str, first_lesson: str
+    topic: str, first_lesson: str, reference: str
 ) -> list[ChatCompletionMessageParam]:
     """构造测验题提示词."""
     return [
@@ -99,7 +99,11 @@ def build_quiz_messages(
         },
         {
             "role": "user",
-            "content": f"学习主题：{topic}\n课程内容：{first_lesson}",
+            "content": (
+                f"学习主题：{topic}\n"
+                f"课程内容：{first_lesson}\n"
+                f"参考资料：{reference}"
+            ),
         },
     ]
 
@@ -151,14 +155,14 @@ async def generate_lesson(topic: str, learning_goal: str) -> str:
     return lesson
 
 
-async def generate_quiz(topic: str, first_lesson: str) -> list[str]:
+async def generate_quiz(topic: str, first_lesson: str, reference: str) -> list[str]:
     """调用智谱 GLM 生成三道测验题."""
     api_key, endpoint, model = get_zhipu_client_config()
     async with AsyncOpenAI(api_key=api_key, base_url=endpoint) as client:
         response = await client.chat.completions.create(
             model=model,
             temperature=0.2,
-            messages=build_quiz_messages(topic, first_lesson),
+            messages=build_quiz_messages(topic, first_lesson, reference),
         )
 
     content = response.choices[0].message.content or ""

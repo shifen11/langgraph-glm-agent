@@ -12,6 +12,7 @@ async def test_learning_plan_agent_builds_plan_lesson_and_quiz() -> None:
     assert len(res["learning_plan"]) == 3
     assert all(item for item in res["learning_plan"])
     assert len(res["first_lesson"]) > 20
+    assert "LangGraph" in res["reference"]
     assert len(res["quiz"]) == 3
 
 
@@ -20,6 +21,7 @@ async def test_learning_plan_agent_can_skip_quiz() -> None:
         "topic": "LangGraph 条件边",
         "skip_quiz": True,
         "quiz": ["旧测验题"],
+        "reference": "旧资料",
     }
     res = await graph.ainvoke(inputs)
     assert res["topic"] == "LangGraph 条件边"
@@ -27,3 +29,4 @@ async def test_learning_plan_agent_can_skip_quiz() -> None:
     assert len(res["learning_plan"]) == 3
     assert len(res["first_lesson"]) > 20
     assert res["quiz"] == []
+    assert res["reference"] == ""
