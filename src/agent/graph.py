@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.pregel import Pregel
 
 from agent.llm import generate_learning_plan, generate_lesson, generate_quiz
 from agent.tools import lookup_langgraph_reference
@@ -62,7 +62,12 @@ async def explain_topic(state: State) -> Dict[str, Any]:
     next_step = min(state.current_step + 1, max(len(state.learning_plan), 1))
     lesson = await generate_lesson(topic=topic, learning_goal=learning_goal)
     if state.skip_quiz:
-        return {"first_lesson": lesson, "current_step": next_step, "reference": "", "quiz": []}
+        return {
+            "first_lesson": lesson,
+            "current_step": next_step,
+            "reference": "",
+            "quiz": [],
+        }
     return {"first_lesson": lesson, "current_step": next_step}
 
 
@@ -91,18 +96,26 @@ def route_after_lesson(state: State) -> str:
     return "collect_reference"
 
 
-checkpointer = InMemorySaver()
+def build_graph(checkpointer: Any = None) -> Pregel:
+    """构建学习计划 Agent 图.
 
-graph = (
-    StateGraph(State)
-    .add_node("plan_topic", plan_topic)
-    .add_node("explain_topic", explain_topic)
-    .add_node("collect_reference", collect_reference)
-    .add_node("make_quiz", make_quiz)
-    .add_edge(START, "plan_topic")
-    .add_edge("plan_topic", "explain_topic")
-    .add_conditional_edges("explain_topic", route_after_lesson)
-    .add_edge("collect_reference", "make_quiz")
-    .add_edge("make_quiz", END)
-    .compile(name="学习计划 Agent", checkpointer=checkpointer)
-)
+    `langgraph dev` 会自动处理 persistence，所以导出的 `graph` 不传自定义
+    checkpointer。纯 Python 测试或脚本如果要模拟 thread 记忆，可以显式传入
+    `InMemorySaver()`。
+    """
+    return (
+        StateGraph(State)
+        .add_node("plan_topic", plan_topic)
+        .add_node("explain_topic", explain_topic)
+        .add_node("collect_reference", collect_reference)
+        .add_node("make_quiz", make_quiz)
+        .add_edge(START, "plan_topic")
+        .add_edge("plan_topic", "explain_topic")
+        .add_conditional_edges("explain_topic", route_after_lesson)
+        .add_edge("collect_reference", "make_quiz")
+        .add_edge("make_quiz", END)
+        .compile(name="学习计划 Agent", checkpointer=checkpointer)
+    )
+
+
+graph = build_graph()

@@ -2,6 +2,7 @@ import importlib
 from uuid import uuid4
 
 import pytest
+from langgraph.checkpoint.memory import InMemorySaver
 
 from agent import graph as compiled_graph
 
@@ -56,12 +57,13 @@ async def test_learning_plan_agent_remembers_progress_in_same_thread(
     monkeypatch.setattr(graph_module, "generate_lesson", fake_generate_lesson)
 
     config = thread_config()
+    memory_graph = graph_module.build_graph(checkpointer=InMemorySaver())
 
-    first = await compiled_graph.ainvoke(
+    first = await memory_graph.ainvoke(
         {"topic": "LangGraph 记忆", "skip_quiz": True},
         config,
     )
-    second = await compiled_graph.ainvoke(
+    second = await memory_graph.ainvoke(
         {"topic": "继续", "skip_quiz": True},
         config,
     )

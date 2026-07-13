@@ -1,6 +1,6 @@
 # LangGraph 智能体学习项目
 
-这是一个基于 LangGraph 官方脚手架改造的学习项目。当前已经进入第五阶段：`plan_topic`、`explain_topic` 和 `make_quiz` 三个节点都会调用智谱 GLM，`collect_reference` 节点会调用本地资料查询工具，并把工具结果写回 `State` 供测验节点使用。图还接入了 `InMemorySaver`，同一个 `thread_id` 下可以记住学习计划和当前学习进度。
+这是一个基于 LangGraph 官方脚手架改造的学习项目。当前已经进入第五阶段：`plan_topic`、`explain_topic` 和 `make_quiz` 三个节点都会调用智谱 GLM，`collect_reference` 节点会调用本地资料查询工具，并把工具结果写回 `State` 供测验节点使用。图支持通过 `thread_id` 记住学习计划和当前学习进度。
 
 当前图结构如下：
 
@@ -117,14 +117,16 @@ PY
 
 不跳过测验时，图会先执行 `collect_reference`，把本地资料写入 `reference` 字段，再让 `make_quiz` 基于课程讲解和参考资料生成测验题。
 
-继续学习下一课：
+继续学习下一课。纯 Python 脚本直接调用图时，需要自己传入 `InMemorySaver` 来模拟 LangGraph API 的 thread 记忆：
 
 ```bash
 uv run python - <<'PY'
 import asyncio
-from agent.graph import graph
+from langgraph.checkpoint.memory import InMemorySaver
+from agent.graph import build_graph
 
 async def main():
+    graph = build_graph(checkpointer=InMemorySaver())
     config = {"configurable": {"thread_id": "study-demo"}}
 
     first = await graph.ainvoke({
@@ -144,6 +146,8 @@ PY
 ```
 
 这里的关键是两次调用使用同一个 `thread_id`。如果换成新的 `thread_id`，LangGraph 会把它当成一条新的学习线程。
+
+在 `uv run langgraph dev` / Studio 里，不需要在 `src/agent/graph.py` 的导出图上手动配置 `InMemorySaver`。LangGraph API 会自动接管 persistence；如果导出的 `graph` 自带自定义 checkpointer，开发服务会拒绝加载。
 
 ## 下一阶段
 
