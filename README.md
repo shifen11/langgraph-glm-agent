@@ -1,12 +1,13 @@
 # LangGraph 智能体学习项目
 
-这是一个基于 LangGraph 官方脚手架改造的学习项目。当前已经进入第五阶段：`plan_topic`、`explain_topic` 和 `make_quiz` 三个节点都会调用智谱 GLM，`collect_reference` 节点会调用本地资料查询工具，并把工具结果写回 `State` 供测验节点使用。图支持通过 `thread_id` 记住学习计划和当前学习进度。
+这是一个基于 LangGraph 官方脚手架改造的学习项目。当前已经进入第六阶段：`plan_topic`、`explain_topic` 和 `make_quiz` 三个节点都会调用智谱 GLM，`collect_reference` 节点会调用本地资料查询工具，并把工具结果写回 `State` 供测验节点使用。图支持通过 `thread_id` 记住学习计划和当前学习进度，并在生成学习计划后通过 `interrupt` 等待人工确认。
 
 当前图结构如下：
 
 ```text
 START
   -> plan_topic      生成学习计划
+  -> review_plan     暂停，等待确认学习计划
   -> explain_topic   根据 current_step 讲解当前知识点
       ├─ skip_quiz=false -> collect_reference -> make_quiz -> END
       └─ skip_quiz=true  -> END
@@ -76,17 +77,22 @@ uv run langgraph dev --port 2025
 uv run pytest -q
 ```
 
-也可以直接调用图：
+也可以直接调用图。因为当前图里有 `interrupt`，纯 Python 脚本需要自己传入 `InMemorySaver`，并用 `Command(resume=True)` 模拟人工确认：
 
 ```bash
 uv run python - <<'PY'
 import asyncio
 from uuid import uuid4
-from agent.graph import graph
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
+from agent.graph import build_graph
 
 async def main():
+    graph = build_graph(checkpointer=InMemorySaver())
     config = {"configurable": {"thread_id": f"study-{uuid4()}"}}
-    result = await graph.ainvoke({"topic": "LangGraph 智能体"}, config)
+    interrupted = await graph.ainvoke({"topic": "LangGraph 智能体"}, config)
+    print("等待确认：", interrupted["__interrupt__"])
+    result = await graph.ainvoke(Command(resume=True), config)
     print(result)
 
 asyncio.run(main())
@@ -99,14 +105,18 @@ PY
 uv run python - <<'PY'
 import asyncio
 from uuid import uuid4
-from agent.graph import graph
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
+from agent.graph import build_graph
 
 async def main():
+    graph = build_graph(checkpointer=InMemorySaver())
     config = {"configurable": {"thread_id": f"study-{uuid4()}"}}
-    result = await graph.ainvoke({
+    await graph.ainvoke({
         "topic": "LangGraph 条件边",
         "skip_quiz": True,
     }, config)
+    result = await graph.ainvoke(Command(resume=True), config)
     print(result)
 
 asyncio.run(main())
@@ -117,22 +127,41 @@ PY
 
 不跳过测验时，图会先执行 `collect_reference`，把本地资料写入 `reference` 字段，再让 `make_quiz` 基于课程讲解和参考资料生成测验题。
 
+在 Studio 里第一次输入新主题时，流程会停在 `review_plan`。你确认后再恢复运行，`explain_topic` 才会开始讲第一课。如果恢复输入是：
+
+```json
+true
+```
+
+表示直接确认原计划。如果恢复输入是：
+
+```json
+{
+  "approved": true,
+  "learning_plan": ["先理解 interrupt", "再学习 Command", "最后接入 Studio"]
+}
+```
+
+表示确认并替换学习计划。
+
 继续学习下一课。纯 Python 脚本直接调用图时，需要自己传入 `InMemorySaver` 来模拟 LangGraph API 的 thread 记忆：
 
 ```bash
 uv run python - <<'PY'
 import asyncio
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.types import Command
 from agent.graph import build_graph
 
 async def main():
     graph = build_graph(checkpointer=InMemorySaver())
     config = {"configurable": {"thread_id": "study-demo"}}
 
-    first = await graph.ainvoke({
+    await graph.ainvoke({
         "topic": "LangGraph 记忆",
         "skip_quiz": True,
     }, config)
+    first = await graph.ainvoke(Command(resume=True), config)
     print("第一次：", first["current_step"], first["first_lesson"])
 
     second = await graph.ainvoke({
@@ -153,6 +182,6 @@ PY
 
 后续可以按学习顺序继续扩展：
 
-1. 增加 human-in-the-loop，让关键学习计划需要用户确认后再继续。
-2. 把本地资料查询工具升级成真实文档检索或联网查询工具。
-3. 把 `InMemorySaver` 换成 SQLite 或 Postgres checkpointer，学习跨进程持久化。
+1. 把本地资料查询工具升级成真实文档检索或联网查询工具。
+2. 把 `InMemorySaver` 换成 SQLite 或 Postgres checkpointer，学习跨进程持久化。
+3. 增加更细的人工审核，例如工具调用前确认、测验发布前确认。
